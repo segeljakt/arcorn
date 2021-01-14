@@ -8,6 +8,7 @@ use arcon::prelude::state::MapState;
 use arcon::prelude::state::Value;
 use arcon::prelude::state::ValueState;
 use arcon::prelude::state::VecState;
+use arcon::prelude::OperatorResult;
 use std::hash::Hash;
 
 /// Data abstraction over Arcon Values.
@@ -17,19 +18,22 @@ pub struct ArcValue<T: ArconValue, B: Backend> {
 
 impl<T: ArconValue, B: Backend> ArcValue<T, B> {
     #[inline(always)]
-    pub fn new(handle: ActiveHandle<B, ValueState<T>, (), ()>) -> Self {
-        Self {
+    pub fn new(handle: ActiveHandle<B, ValueState<T>, (), ()>, init: T) -> OperatorResult<Self> {
+        let mut state = Self {
             data: Value::new(handle),
-        }
+        };
+        state.write(init)?;
+        Ok(state)
     }
     #[inline(always)]
-    pub fn put(&mut self, v: T) {
-        self.data.put(v)
+    pub fn write(&mut self, v: T) -> OperatorResult<()> {
+        self.data.put(v);
+        Ok(())
     }
 
     #[inline(always)]
-    pub fn get(&mut self) -> T {
-        self.data.get().unwrap().clone()
+    pub fn read(&mut self) -> OperatorResult<T> {
+        Ok(self.data.get().unwrap().clone())
     }
 }
 
@@ -40,19 +44,20 @@ pub struct ArcAppender<T: ArconValue, B: Backend> {
 
 impl<T: ArconValue, B: Backend> ArcAppender<T, B> {
     #[inline(always)]
-    pub fn new(handle: ActiveHandle<B, VecState<T>, (), ()>) -> Self {
-        Self {
+    pub fn new(handle: ActiveHandle<B, VecState<T>, (), ()>) -> OperatorResult<Self> {
+        let state = Self {
             data: Appender::new(handle),
-        }
+        };
+        Ok(state)
     }
     #[inline(always)]
-    pub fn append(&mut self, data: T) {
-        self.data.append(data).unwrap();
+    pub fn append(&mut self, data: T) -> OperatorResult<()> {
+        self.data.append(data)
     }
 
     #[inline(always)]
-    pub fn fold<A>(&mut self, init: A, folder: fn(A, T) -> A) -> A {
-        self.data.consume().unwrap().into_iter().fold(init, folder)
+    pub fn fold<A>(&mut self, init: A, folder: fn(A, T) -> A) -> OperatorResult<A> {
+        Ok(self.data.consume()?.into_iter().fold(init, folder))
     }
 }
 
@@ -62,24 +67,32 @@ pub struct ArcMap<K: Hash + ArconKey, V: ArconValue, B: Backend> {
 }
 
 impl<K: Hash + Eq + ArconKey, V: ArconValue, B: Backend> ArcMap<K, V, B> {
-    pub fn new(handle: ActiveHandle<B, MapState<K, V>, (), ()>) -> Self {
-        Self {
+    #[inline(always)]
+    pub fn new(handle: ActiveHandle<B, MapState<K, V>, (), ()>) -> OperatorResult<Self> {
+        let state = Self {
             data: Map::new(handle),
-        }
+        };
+        Ok(state)
     }
 
     #[inline(always)]
-    pub fn insert(&mut self, key: K, val: V) {
-        self.data.put(key, val).unwrap();
+    pub fn insert(&mut self, key: K, val: V) -> OperatorResult<()> {
+        self.data.put(key, val)
     }
 
     #[inline(always)]
-    pub fn get(&mut self, key: K) -> Option<V> {
-        self.data.get(&key).unwrap().cloned()
+    pub fn contains(&self, key: K) -> OperatorResult<bool> {
+        Ok(self.data.get(&key)?.is_some())
     }
 
     #[inline(always)]
-    pub fn remove(&mut self, key: K) {
-        self.data.remove(&key).unwrap().unwrap();
+    pub fn get_unchecked(&mut self, key: K) -> OperatorResult<V> {
+        Ok(self.data.get(&key)?.unwrap().clone())
+    }
+
+    #[inline(always)]
+    pub fn remove(&mut self, key: K) -> OperatorResult<()> {
+        self.data.remove(&key)?;
+        Ok(())
     }
 }
