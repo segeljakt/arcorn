@@ -9,6 +9,7 @@ use arcon::prelude::state::Value;
 use arcon::prelude::state::ValueState;
 use arcon::prelude::state::VecState;
 use arcon::prelude::OperatorResult;
+
 use std::hash::Hash;
 
 /// Data abstraction over Arcon Values.
@@ -17,6 +18,7 @@ pub struct ArcValue<T: ArconValue, B: Backend> {
 }
 
 impl<T: ArconValue, B: Backend> ArcValue<T, B> {
+    /// Always assume an initial value.
     #[inline(always)]
     pub fn new(handle: ActiveHandle<B, ValueState<T>, (), ()>, init: T) -> OperatorResult<Self> {
         let mut state = Self {
@@ -50,8 +52,9 @@ impl<T: ArconValue, B: Backend> ArcAppender<T, B> {
         };
         Ok(state)
     }
+
     #[inline(always)]
-    pub fn append(&mut self, data: T) -> OperatorResult<()> {
+    pub fn push(&mut self, data: T) -> OperatorResult<()> {
         self.data.append(data)
     }
 
