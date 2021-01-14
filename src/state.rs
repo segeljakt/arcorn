@@ -27,6 +27,7 @@ impl<T: ArconValue, B: Backend> ArcValue<T, B> {
         state.write(init)?;
         Ok(state)
     }
+
     #[inline(always)]
     pub fn write(&mut self, v: T) -> OperatorResult<()> {
         self.data.put(v);
