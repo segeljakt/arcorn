@@ -12,5 +12,12 @@ license = "MIT"
 git = "https://github.com/cda-group/arcon"
 version = "0.1.3"
 
+[dependencies.macros]
+path = "./macros"
+version = "0.1.0"
+
 [dependencies.shrinkwraprs]
 version = "0.3.0"
+
+[dependencies.prost]
+version = "0.7.0"

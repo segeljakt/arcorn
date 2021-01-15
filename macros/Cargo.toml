@@ -1,0 +1,21 @@
+[package]
+name = "macros"
+version = "0.1.0"
+authors = ["Klas Segeljakt <klasseg@kth.se>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies.quote]
+version = "1.0.8"
+
+[dependencies.syn]
+version = "1.0.58"
+features = ["full"]
+
+[dependencies.proc-macro2]
+version = "1.0.24"
+
+[dependencies.indexmap]
+version = "1.6.1"
