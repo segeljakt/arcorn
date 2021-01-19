@@ -5,11 +5,13 @@ use arcon::prelude::state::Backend;
 use arcon::prelude::state::HashTable;
 use arcon::prelude::state::Value;
 use arcon::prelude::OperatorResult;
+use arcon::prelude::state::ArconState;
 
 use std::hash::Hash;
 use std::sync::Arc;
 
 /// Data abstraction over Arcon Values.
+#[derive(ArconState)]
 pub struct ArcValue<T: ArconValue, B: Backend> {
     data: Value<T, B>,
 }
@@ -38,6 +40,7 @@ impl<T: ArconValue, B: Backend> ArcValue<T, B> {
 }
 
 /// Data abstraction over Arcon Appenders.
+#[derive(ArconState)]
 pub struct ArcAppender<T: ArconValue, B: Backend> {
     data: Appender<T, B>,
 }
@@ -63,7 +66,8 @@ impl<T: ArconValue, B: Backend> ArcAppender<T, B> {
 }
 
 /// Data abstraction over Arcon Maps.
-pub struct ArcMap<K: Hash + ArconKey, V: ArconValue, B: Backend> {
+#[derive(ArconState)]
+pub struct ArcMap<K: Eq + Hash + ArconKey, V: ArconValue, B: Backend> {
     data: HashTable<K, V, B>,
 }
 
