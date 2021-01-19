@@ -70,16 +70,18 @@ impl Codegen {
                     let ty = ArcType::parse(&field.ty, structs, enums);
                     let tag = tag.to_string();
                     // Generate enum
-                    if let ArcType::RcStruct(id) = &ty {
-                        field.ty = syn::parse_quote!(Box<#id>);
+                    match &ty {
+                        ArcType::RcStruct(id) => field.ty = syn::parse_quote!(Box<#id>),
+                        ArcType::RcString => field.ty = syn::parse_quote!(String),
+                        _ => {}
                     }
                     let attr = match &ty {
                         ArcType::RcStruct(_) => syn::parse_quote!(#[prost(message, tag = #tag)]),
+                        ArcType::RcString    => syn::parse_quote!(#[prost(string, tag = #tag)]),
                         ArcType::I32         => syn::parse_quote!(#[prost(int32, tag = #tag)]),
                         ArcType::I64         => syn::parse_quote!(#[prost(int64, tag = #tag)]),
                         ArcType::U32         => syn::parse_quote!(#[prost(uint32, tag = #tag)]),
                         ArcType::U64         => syn::parse_quote!(#[prost(uint64, tag = #tag)]),
-                        ArcType::String      => syn::parse_quote!(#[prost(string, tag = #tag)]),
                         ArcType::RcEnum(_)   => panic!("Enum variant cannot have Enum type"),
                     };
                     variant.attrs.push(attr);
@@ -89,9 +91,13 @@ impl Codegen {
                             arc2arcon.push(quote!(super::#enum_id::#variant_id(x) => #enum_id::#variant_id(Box::new(x.as_ref().into()))));
                             arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(Rc::new((*x).into()))));
                         }
-                        ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 | ArcType::String => {
+                        ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 => {
                             arc2arcon.push(quote!(super::#enum_id::#variant_id(x) => #enum_id::#variant_id(x.clone())));
                             arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(x.clone())));
+                        }
+                        ArcType::RcString => {
+                            arc2arcon.push(quote!(super::#enum_id::#variant_id(x) => #enum_id::#variant_id(x.as_ref().clone())));
+                            arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(Rc::new(x))));
                         }
                         ArcType::RcEnum(_) => panic!("Enum variant cannot have Enum type"),
                     }
@@ -139,8 +145,10 @@ impl Codegen {
                     syn::parse_quote!(#[prost(oneof = #string_id, tags = #tags)])
                 } else {
                     let tag = arcon.next_tag().to_string();
-                    if let ArcType::RcStruct(id) = &ty {
-                        field.ty = syn::parse_quote!(#id);
+                    match &ty {
+                        ArcType::RcStruct(id) => field.ty = syn::parse_quote!(#id),
+                        ArcType::RcString => field.ty = syn::parse_quote!(String),
+                        _ => {}
                     }
                     match &ty {
                         ArcType::RcStruct(_) => syn::parse_quote!(#[prost(message, tag = #tag)]),
@@ -148,14 +156,14 @@ impl Codegen {
                         ArcType::I64         => syn::parse_quote!(#[prost(int64, tag = #tag)]),
                         ArcType::U32         => syn::parse_quote!(#[prost(uint32, tag = #tag)]),
                         ArcType::U64         => syn::parse_quote!(#[prost(uint64, tag = #tag)]),
-                        ArcType::String      => syn::parse_quote!(#[prost(string, tag = #tag)]),
+                        ArcType::RcString    => syn::parse_quote!(#[prost(string, tag = #tag)]),
                         ArcType::RcEnum(_)   => unreachable!()
                     }
                 };
                 field.attrs.push(attr);
                 // Generate conversions to/from struct
                 match &ty {
-                    ArcType::RcStruct(_) => {
+                    ArcType::RcStruct(_) | ArcType::RcString => {
                         arc2arcon.push(quote!(#field_id: data.#field_id.as_ref().into()));
                         arcon2arc.push(quote!(#field_id: Rc::new(data.#field_id.into())));
                     }
@@ -163,7 +171,7 @@ impl Codegen {
                         arc2arcon.push(quote!(#field_id: Some(data.#field_id.as_ref().into())));
                         arcon2arc.push(quote!(#field_id: Rc::new(data.#field_id.unwrap().into())));
                     }
-                    ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 | ArcType::String => {
+                    ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 => {
                         arc2arcon.push(quote!(#field_id: data.#field_id.clone()));
                         arcon2arc.push(quote!(#field_id: data.#field_id.clone()));
                     }
@@ -248,11 +256,11 @@ struct Arc {
 enum ArcType {
     RcStruct(syn::Ident),
     RcEnum(syn::Ident),
+    RcString,
     I32,
     I64,
     U32,
     U64,
-    String,
 }
 
 impl ArcType {
@@ -264,10 +272,10 @@ impl ArcType {
         if let syn::Type::Path(ty) = ty {
             let mut segments = ty.path.segments.iter();
             let segment = segments.next().unwrap();
-            let iid = segment.ident.clone();
+            let id = segment.ident.clone();
             let args = &segment.arguments;
             assert!(segments.next().is_none(), "Found path of multiple segments");
-            match iid.to_string().as_str() {
+            match id.to_string().as_str() {
                 "Rc" => {
                     if let syn::PathArguments::AngleBracketed(args) = args {
                         let mut args = args.args.iter();
@@ -281,7 +289,8 @@ impl ArcType {
                                     "Found path of multiple segments"
                                 );
                                 let id = segment.ident.clone();
-                                match id {
+                                match id.to_string().as_str() {
+                                    "String" => ArcType::RcString,
                                     _ if structs.contains_key(&id) => ArcType::RcStruct(id),
                                     _ if enums.contains_key(&id) => ArcType::RcEnum(id),
                                     _ => panic!("Rc referenced undefined Nominal-type"),
@@ -300,7 +309,6 @@ impl ArcType {
                 "i64" => ArcType::I64,
                 "u32" => ArcType::U32,
                 "u64" => ArcType::U64,
-                "String" => ArcType::String,
                 _ => panic!("Expected Arc-type, found something else"),
             }
         } else {

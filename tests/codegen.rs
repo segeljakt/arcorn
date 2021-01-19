@@ -16,7 +16,7 @@ arcorn! {
     pub struct Nil {}
 
     pub struct Foo {
-        pub f0: String,
+        pub f0: Rc<String>,
         pub f1: i32,
         pub f2: i64,
         pub f3: u32,
@@ -24,7 +24,7 @@ arcorn! {
     }
 
     pub enum Bar {
-        A(String),
+        A(Rc<String>),
         B(i32),
         C(i64),
         D(u32),
