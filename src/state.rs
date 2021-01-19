@@ -1,16 +1,13 @@
-use arcon::prelude::state::backend::handles::ActiveHandle;
 use arcon::prelude::state::data::Key as ArconKey;
 use arcon::prelude::state::data::Value as ArconValue;
 use arcon::prelude::state::Appender;
 use arcon::prelude::state::Backend;
-use arcon::prelude::state::Map;
-use arcon::prelude::state::MapState;
+use arcon::prelude::state::HashTable;
 use arcon::prelude::state::Value;
-use arcon::prelude::state::ValueState;
-use arcon::prelude::state::VecState;
 use arcon::prelude::OperatorResult;
 
 use std::hash::Hash;
+use std::sync::Arc;
 
 /// Data abstraction over Arcon Values.
 pub struct ArcValue<T: ArconValue, B: Backend> {
@@ -20,9 +17,9 @@ pub struct ArcValue<T: ArconValue, B: Backend> {
 impl<T: ArconValue, B: Backend> ArcValue<T, B> {
     /// Always assume an initial value.
     #[inline(always)]
-    pub fn new(handle: ActiveHandle<B, ValueState<T>, (), ()>, init: T) -> OperatorResult<Self> {
+    pub fn new(name: &str, handle: Arc<B>, init: T) -> OperatorResult<Self> {
         let mut state = Self {
-            data: Value::new(handle),
+            data: Value::new(name, handle),
         };
         state.write(init)?;
         Ok(state)
@@ -47,9 +44,9 @@ pub struct ArcAppender<T: ArconValue, B: Backend> {
 
 impl<T: ArconValue, B: Backend> ArcAppender<T, B> {
     #[inline(always)]
-    pub fn new(handle: ActiveHandle<B, VecState<T>, (), ()>) -> OperatorResult<Self> {
+    pub fn new(name: &str, handle: Arc<B>) -> OperatorResult<Self> {
         let state = Self {
-            data: Appender::new(handle),
+            data: Appender::new(name, handle),
         };
         Ok(state)
     }
@@ -67,14 +64,14 @@ impl<T: ArconValue, B: Backend> ArcAppender<T, B> {
 
 /// Data abstraction over Arcon Maps.
 pub struct ArcMap<K: Hash + ArconKey, V: ArconValue, B: Backend> {
-    data: Map<K, V, B>,
+    data: HashTable<K, V, B>,
 }
 
 impl<K: Hash + Eq + ArconKey, V: ArconValue, B: Backend> ArcMap<K, V, B> {
     #[inline(always)]
-    pub fn new(handle: ActiveHandle<B, MapState<K, V>, (), ()>) -> OperatorResult<Self> {
+    pub fn new(name: &str, handle: Arc<B>) -> OperatorResult<Self> {
         let state = Self {
-            data: Map::new(handle),
+            data: HashTable::new(name, handle),
         };
         Ok(state)
     }
