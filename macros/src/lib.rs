@@ -122,7 +122,7 @@ impl Codegen {
         let arcon = &mut self.arcon;
         let impls = &mut self.impls;
         for (struct_id, mut item) in structs.clone().into_iter() {
-            item.attrs.push(syn::parse_quote!(#[derive(ArconType, Clone, Message)]));
+            item.attrs.push(syn::parse_quote!(#[derive(Arcon, Clone, Message)]));
             // TODO: These numbers should not be hardcoded.
             item.attrs.push(syn::parse_quote!(#[arcon(reliable_ser_id = 13, version = 1)]));
             let mut arc2arcon = Vec::new();
@@ -198,6 +198,7 @@ impl Codegen {
             #(#arc_enums)*
             pub mod arcon_types {
                 use prost::{Message, Oneof};
+                use arcon_macros::Arcon;
                 use std::rc::Rc;
                 #(#arcon_structs)*
                 #(#arcon_enums)*

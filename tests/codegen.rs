@@ -3,17 +3,17 @@ use std::rc::Rc;
 
 arcorn! {
 
-    enum List {
+    pub enum List {
         Cons(Rc<Cons>),
         Nil(Rc<Nil>),
     }
 
-    struct Cons {
-        val: i32,
-        tail: Rc<List>,
+    pub struct Cons {
+        pub val: i32,
+        pub tail: Rc<List>,
     }
 
-    struct Nil {}
+    pub struct Nil {}
 }
 
 #[test]
