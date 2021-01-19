@@ -90,8 +90,8 @@ impl Codegen {
                             arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(Rc::new((*x).into()))));
                         }
                         ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 | ArcType::String => {
-                            arc2arcon.push(quote!(super::#enum_id::#variant_id(x) => #enum_id::#variant_id(x)));
-                            arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(x)));
+                            arc2arcon.push(quote!(super::#enum_id::#variant_id(x) => #enum_id::#variant_id(x.clone())));
+                            arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(x.clone())));
                         }
                         ArcType::RcEnum(_) => panic!("Enum variant cannot have Enum type"),
                     }
@@ -164,8 +164,8 @@ impl Codegen {
                         arcon2arc.push(quote!(#field_id: Rc::new(data.#field_id.unwrap().into())));
                     }
                     ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 | ArcType::String => {
-                        arc2arcon.push(quote!(#field_id: data.#field_id));
-                        arcon2arc.push(quote!(#field_id: data.#field_id));
+                        arc2arcon.push(quote!(#field_id: data.#field_id.clone()));
+                        arcon2arc.push(quote!(#field_id: data.#field_id.clone()));
                     }
                 }
             });
