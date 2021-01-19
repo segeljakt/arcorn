@@ -22,6 +22,7 @@ struct Codegen {
     impls: Vec<syn::ItemImpl>,
 }
 
+#[rustfmt::skip]
 impl Codegen {
     fn new(input: syn::File) -> Self {
         let mut structs = HashMap::new();
@@ -69,30 +70,31 @@ impl Codegen {
                     let mut field = variant.fields.iter_mut().next().unwrap();
                     let ty = ArcType::parse(&field.ty, structs, enums);
                     let tag = tag.to_string();
-                    match ty {
-                        ArcType::RcStruct(id) => {
-                            field.ty = syn::parse_quote!(Box<#id>);
-                            variant
-                                .attrs
-                                .push(syn::parse_quote!(#[prost(message, tag = #tag)]));
+                    // Generate enum
+                    if let ArcType::RcStruct(id) = &ty {
+                        field.ty = syn::parse_quote!(Box<#id>);
+                    }
+                    let attr = match &ty {
+                        ArcType::RcStruct(_) => syn::parse_quote!(#[prost(message, tag = #tag)]),
+                        ArcType::I32         => syn::parse_quote!(#[prost(int32, tag = #tag)]),
+                        ArcType::I64         => syn::parse_quote!(#[prost(int64, tag = #tag)]),
+                        ArcType::U32         => syn::parse_quote!(#[prost(uint32, tag = #tag)]),
+                        ArcType::U64         => syn::parse_quote!(#[prost(uint64, tag = #tag)]),
+                        ArcType::String      => syn::parse_quote!(#[prost(string, tag = #tag)]),
+                        ArcType::RcEnum(_)   => panic!("Enum variant cannot have Enum type"),
+                    };
+                    variant.attrs.push(attr);
+                    // Generate to/from conversions
+                    match &ty {
+                        ArcType::RcStruct(_) => {
                             arc2arcon.push(quote!(super::#enum_id::#variant_id(x) => #enum_id::#variant_id(Box::new(x.as_ref().into()))));
                             arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(Rc::new((*x).into()))));
                         }
-                        ArcType::RcEnum(_) => {
-                            panic!("Enum variant cannot have Enum type");
-                        }
-                        ArcType::I32 => {
-                            variant
-                                .attrs
-                                .push(syn::parse_quote!(#[prost(int32, tag = #tag)]));
+                        ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 | ArcType::String => {
                             arc2arcon.push(quote!(super::#enum_id::#variant_id(x) => #enum_id::#variant_id(x)));
                             arcon2arc.push(quote!(#enum_id::#variant_id(x) => super::#enum_id::#variant_id(x)));
                         }
-                        ArcType::I64 => {
-                            variant
-                                .attrs
-                                .push(syn::parse_quote!(#[prost(int64, tag = #tag)]));
-                        }
+                        ArcType::RcEnum(_) => panic!("Enum variant cannot have Enum type"),
                     }
                 });
             impls.push(syn::parse_quote! {
@@ -128,48 +130,40 @@ impl Codegen {
             item.fields.iter_mut().for_each(|field| {
                 let ty = ArcType::parse(&field.ty, structs, enums);
                 let field_id = &field.ident.as_ref().unwrap();
-                match ty {
-                    ArcType::RcStruct(id) => {
-                        let tag = arcon.next_tag().to_string();
+                // Generate struct
+                let attr = if let ArcType::RcEnum(id) = &ty {
+                    let tags = arcon.enums.get(id).unwrap().tags.clone();
+                    let tags = tags.into_iter().map(|tag| tag.to_string()).collect::<Vec<_>>().join(", ");
+                    let string_id = id.to_string();
+                    field.ty = syn::parse_quote!(Option<#id>);
+                    syn::parse_quote!(#[prost(oneof = #string_id, tags = #tags)])
+                } else {
+                    let tag = arcon.next_tag().to_string();
+                    if let ArcType::RcStruct(id) = &ty {
                         field.ty = syn::parse_quote!(#id);
-                        field
-                            .attrs
-                            .push(syn::parse_quote!(#[prost(message, tag = #tag)]));
+                    }
+                    match &ty {
+                        ArcType::RcStruct(_) => syn::parse_quote!(#[prost(message, tag = #tag)]),
+                        ArcType::I32         => syn::parse_quote!(#[prost(int32, tag = #tag)]),
+                        ArcType::I64         => syn::parse_quote!(#[prost(int64, tag = #tag)]),
+                        ArcType::U32         => syn::parse_quote!(#[prost(uint32, tag = #tag)]),
+                        ArcType::U64         => syn::parse_quote!(#[prost(uint64, tag = #tag)]),
+                        ArcType::String      => syn::parse_quote!(#[prost(string, tag = #tag)]),
+                        ArcType::RcEnum(_)   => unreachable!()
+                    }
+                };
+                field.attrs.push(attr);
+                // Generate conversions to/from struct
+                match &ty {
+                    ArcType::RcStruct(_) => {
                         arc2arcon.push(quote!(#field_id: data.#field_id.as_ref().into()));
                         arcon2arc.push(quote!(#field_id: Rc::new(data.#field_id.into())));
                     }
-                    ArcType::RcEnum(id) => {
-                        let tags = arcon
-                            .enums
-                            .get(&id)
-                            .unwrap()
-                            .tags
-                            .clone()
-                            .into_iter()
-                            .map(|tag| tag.to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        let string_id = id.to_string();
-                        field.ty = syn::parse_quote!(Option<#id>);
-                        field
-                            .attrs
-                            .push(syn::parse_quote!(#[prost(oneof = #string_id, tags = #tags)]));
+                    ArcType::RcEnum(_) => {
                         arc2arcon.push(quote!(#field_id: Some(data.#field_id.as_ref().into())));
                         arcon2arc.push(quote!(#field_id: Rc::new(data.#field_id.unwrap().into())));
                     }
-                    ArcType::I32 => {
-                        let tag = arcon.next_tag().to_string();
-                        field
-                            .attrs
-                            .push(syn::parse_quote!(#[prost(int32, tag = #tag)]));
-                        arc2arcon.push(quote!(#field_id: data.#field_id));
-                        arcon2arc.push(quote!(#field_id: data.#field_id));
-                    }
-                    ArcType::I64 => {
-                        let tag = arcon.next_tag().to_string();
-                        field
-                            .attrs
-                            .push(syn::parse_quote!(#[prost(int64, tag = #tag)]));
+                    ArcType::I32 | ArcType::I64 | ArcType::U32 | ArcType::U64 | ArcType::String => {
                         arc2arcon.push(quote!(#field_id: data.#field_id));
                         arcon2arc.push(quote!(#field_id: data.#field_id));
                     }
@@ -255,6 +249,9 @@ enum ArcType {
     RcEnum(syn::Ident),
     I32,
     I64,
+    U32,
+    U64,
+    String,
 }
 
 impl ArcType {
@@ -300,6 +297,9 @@ impl ArcType {
                 }
                 "i32" => ArcType::I32,
                 "i64" => ArcType::I64,
+                "u32" => ArcType::U32,
+                "u64" => ArcType::U64,
+                "String" => ArcType::String,
                 _ => panic!("Expected Arc-type, found something else"),
             }
         } else {
