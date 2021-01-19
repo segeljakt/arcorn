@@ -196,7 +196,7 @@ impl Codegen {
         quote! {
             #(#arc_structs)*
             #(#arc_enums)*
-            mod arcon_types {
+            pub mod arcon_types {
                 use prost::{Message, Oneof};
                 use std::rc::Rc;
                 #(#arcon_structs)*
