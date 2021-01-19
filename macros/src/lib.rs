@@ -57,7 +57,7 @@ impl Codegen {
         let arcon = &mut self.arcon;
         let impls = &mut self.impls;
         for (enum_id, mut item) in enums.clone().into_iter() {
-            item.attrs.push(syn::parse_quote!(#[derive(Oneof)]));
+            item.attrs.push(syn::parse_quote!(#[derive(Oneof, Clone)]));
             let range = arcon.tag_range(item.variants.len());
             let mut arcon2arc = Vec::new();
             let mut arc2arcon = Vec::new();
@@ -122,7 +122,9 @@ impl Codegen {
         let arcon = &mut self.arcon;
         let impls = &mut self.impls;
         for (struct_id, mut item) in structs.clone().into_iter() {
-            item.attrs.push(syn::parse_quote!(#[derive(Message)]));
+            item.attrs.push(syn::parse_quote!(#[derive(ArconType, Clone, Message)]));
+            // TODO: These numbers should not be hardcoded.
+            item.attrs.push(syn::parse_quote!(#[arcon(reliable_ser_id = 13, version = 1)]));
             let mut arc2arcon = Vec::new();
             let mut arcon2arc = Vec::new();
             item.fields.iter_mut().for_each(|field| {
