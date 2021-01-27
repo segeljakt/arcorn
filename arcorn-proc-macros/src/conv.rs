@@ -4,8 +4,7 @@ use quote::quote;
 use syn::parse_macro_input;
 
 /// Takes a bunch of structs and enums and generates boilerplate code.
-#[proc_macro]
-pub fn arcorn(input: TokenStream) -> TokenStream {
+pub(super) fn execute(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::File);
 
     let mut codegen = Codegen::new(input);

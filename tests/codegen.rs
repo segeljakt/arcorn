@@ -1,7 +1,7 @@
-use macros::arcorn;
+use arcorn_proc_macros::conv;
 use std::rc::Rc;
 
-arcorn! {
+conv! {
 
     pub enum List {
         Cons(Rc<Cons>),

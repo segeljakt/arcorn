@@ -16,9 +16,11 @@ version = "0.1.3"
 git = "https://github.com/cda-group/arcon"
 version = "0.1.3"
 
-[dependencies.macros]
-path = "./macros"
-version = "0.1.0"
+[dependencies.arcorn-decl-macros]
+path = "./arcorn-decl-macros"
+
+[dependencies.arcorn-proc-macros]
+path = "./arcorn-proc-macros"
 
 [dependencies.shrinkwraprs]
 version = "0.3.0"
